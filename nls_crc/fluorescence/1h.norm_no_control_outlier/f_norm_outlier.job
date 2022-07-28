@@ -1,0 +1,12 @@
+#!/bin/bash
+#PBS -S /bin/bash
+#PBS -o /home/vla/python/nls_drc/fluorescence/1h.norm_no_control_outlier/f_norm_outlier.log 
+#PBS -j oe
+#PBS -l nodes=1:ppn=1,mem=2048mb,walltime=72:00:00
+
+module load miniconda/3
+source activate bitc_race
+cd /home/vla/python/nls_drc/fluorescence/1h.norm_no_control_outlier
+date
+python /home/vla/python/nls_drc/scripts/run_nls_fluorescence.py --data_dir /home/vla/python/nls_drc/fluorescence/input --out_dir /home/vla/python/nls_drc/fluorescence/1h.norm_no_control_outlier --normalized_data   --outlier_detection 
+date 
