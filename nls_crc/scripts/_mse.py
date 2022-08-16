@@ -3,18 +3,24 @@ import warnings
 import numpy as np
 import sys
 import os
+import pickle
 
 import matplotlib
 import matplotlib.pyplot as plt
 
-def plot_MSE(theta_t, input_file, drop_first_column=True, plot_name='MSE Plot', OUT_DIR=None): 
+from _nls_model_outlier_detection import scaling_data
+
+def plot_MSE(theta_t, input_file, control_file=None, normalized_data=False,
+             drop_first_column=True, plot_name='MSE Plot', OUT_DIR=None): 
     """
     This function is used to plot MSE values between the estimated parameters and true parameters
     
     Parameters:
     ----------
     theta_t          : vector, true values of 4 parameters
-    input_file       : string, directory of .csv file from the fitting results 
+    input_file       : string, directory of .csv file from the fitting results
+    control_file     : string, file contains the information of fitting curves, including both controls
+    normalized_data  : bool  , theta was normalized (True) or unnormalized (False)
     drop_first_column: bool  , keep or drop first column in .csv file 
     plot_name        : string, name of the plot
     OUT_DIR          : string, directory to save plot
@@ -22,9 +28,30 @@ def plot_MSE(theta_t, input_file, drop_first_column=True, plot_name='MSE Plot', 
     Saving plot of MSE in OUTDIR directory
 
     """
-    Theta_matrix = pd.read_csv(input_file)
+    Theta_matrix_init = pd.read_csv(input_file)
     if drop_first_column:
-        Theta_matrix = Theta_matrix.drop(Theta_matrix.columns[0], axis=1)
+        Theta_matrix_init = Theta_matrix_init.drop(Theta_matrix_init.columns[0], axis=1)
+
+    if not normalized_data:
+        print("Scaling data to 0 to 100%.")
+        try: 
+            expt_dict = pickle.load(open(control_file+'.pickle', "rb"))
+            expt = pd.DataFrame.from_dict(expt_dict)
+        except:
+            expt = pd.read_csv(control_file+'.csv', index_col=0)
+
+        theta1_scaled = []
+        theta2_scaled = []
+        for i in range(len(expt)):
+            c1 = expt['c1'][i]
+            c2 = expt['c2'][i]
+            theta1_scaled.append(scaling_data(Theta_matrix_init.theta1[i], np.mean(c1), np.mean(c2)))
+            theta2_scaled.append(scaling_data(Theta_matrix_init.theta2[i], np.mean(c1), np.mean(c2)))
+        Theta_matrix = pd.DataFrame([theta1_scaled, theta2_scaled, Theta_matrix_init.theta3, Theta_matrix_init.theta4], 
+                                     index=['theta1', 'theta2', 'theta3', 'theta4']).T
+    else:
+        Theta_matrix = Theta_matrix_init
+
     
     xlabel = {'theta1':'${\Theta}_1$', 'theta2':'${\Theta}_2$', 
               'theta3':'${\Theta}_3$', 'theta4':'${\Theta}_4$'}
@@ -51,7 +78,8 @@ def plot_MSE(theta_t, input_file, drop_first_column=True, plot_name='MSE Plot', 
     plt.ioff()
     # plt.show();
 
-def calculating_MSE(theta_t, input_file, drop_first_column=True, n_batch=1, 
+def calculating_MSE(theta_t, input_file, control_file=None, normalized_data=True, 
+                    drop_first_column=True, n_batch=1, 
                     output_file=None, OUT_DIR=None):
     """
     This function is used to calculate MSE/RMSE between the estimated parameters and true parameters
@@ -71,9 +99,30 @@ def calculating_MSE(theta_t, input_file, drop_first_column=True, n_batch=1,
 
     assert n_batch>0 and isinstance(n_batch, int), print("The number of batches need to be positive integer.")
 
-    Theta_matrix = pd.read_csv(input_file)
+    Theta_matrix_init = pd.read_csv(input_file)
     if drop_first_column:
-        Theta_matrix = Theta_matrix.drop(Theta_matrix.columns[0], axis=1)
+        Theta_matrix_init = Theta_matrix_init.drop(Theta_matrix_init.columns[0], axis=1)
+
+    if not normalized_data:
+        print("Scaling data to 0 to 100%.")
+        try: 
+            expt_dict = pickle.load(open(control_file+'.pickle', "rb"))
+            expt = pd.DataFrame.from_dict(expt_dict)
+        except:
+            expt = pd.read_csv(control_file+'.csv', index_col=0)
+
+        theta1_scaled = []
+        theta2_scaled = []
+        for i in range(len(expt)):
+            c1 = expt['c1'][i]
+            c2 = expt['c2'][i]
+            theta1_scaled.append(scaling_data(Theta_matrix_init.theta1[i], np.mean(c1), np.mean(c2)))
+            theta2_scaled.append(scaling_data(Theta_matrix_init.theta2[i], np.mean(c1), np.mean(c2)))
+        Theta_matrix = pd.DataFrame([theta1_scaled, theta2_scaled, Theta_matrix_init.theta3, Theta_matrix_init.theta4], 
+                                     index=['theta1', 'theta2', 'theta3', 'theta4']).T
+    else:
+        Theta_matrix = Theta_matrix_init
+
     colname = Theta_matrix.columns
     
     MEAN = {}

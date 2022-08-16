@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export SCRIPT="/home/vla/python/nls_drc/scripts/run_mse_sim_incomplete.py"
+export SCRIPT="/home/vla/python/nls_drc/scripts/run_mse_sim.py"
 
 export DATA_DIR="/home/vla/python/nls_drc/sim_incomplete/"
 

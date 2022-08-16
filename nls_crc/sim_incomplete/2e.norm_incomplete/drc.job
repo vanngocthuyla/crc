@@ -1,0 +1,12 @@
+#!/bin/bash
+#PBS -S /bin/bash
+#PBS -o /home/vla/python/nls_drc/sim_incomplete/2e.norm_incomplete/drc.log 
+#PBS -j oe
+#PBS -l nodes=1:ppn=1,mem=2048mb,walltime=72:00:00
+
+module load miniconda/3
+source activate bitc_race
+cd /home/vla/python/nls_drc/sim_incomplete/2e.norm_incomplete
+date
+python /home/vla/python/nls_drc/scripts/run_nls_sim.py --data_dir /home/vla/python/nls_drc/sim_incomplete/1.generate_curves --data_file drc_sim_norm_incomplete --out_dir /home/vla/python/nls_drc/sim_incomplete/2e.norm_incomplete   
+date 
