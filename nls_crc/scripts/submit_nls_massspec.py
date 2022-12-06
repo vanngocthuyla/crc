@@ -10,6 +10,8 @@ parser.add_argument( "--out_dir",               type=str, 				default="")
 parser.add_argument( "--normalized_data",       action="store_true",    default=False)
 parser.add_argument( "--fitting_with_control",  action="store_true", 	default=False)
 parser.add_argument( "--outlier_detection",     action="store_true",    default=False)
+parser.add_argument( "--fixed_R_b",             action="store_true",    default=False)
+parser.add_argument( "--fixed_R_t",             action="store_true",    default=False)
 
 args = parser.parse_args()
 
@@ -29,6 +31,18 @@ if args.fitting_with_control:
     file_name = file_name + "_ctrol"
 else:
     fitting_with_control = ''' '''
+
+if args.fixed_R_b:
+    fixed_R_b = ''' --fixed_R_b '''
+    file_name = file_name + "_t1"
+else:
+    fixed_R_b = ''' '''
+
+if args.fixed_R_t:
+    fixed_R_t = ''' --fixed_R_t '''
+    file_name = file_name + "_t2"
+else:
+    fixed_R_t = ''' '''
 
 if args.outlier_detection:
     outlier_detection = ''' --outlier_detection '''
@@ -53,7 +67,7 @@ cd ''' + args.out_dir + '''\n''' + \
     '''python ''' + running_script + \
     ''' --data_dir ''' + args.data_dir + \
     ''' --out_dir ''' + args.out_dir + \
-    normalized_data + fitting_with_control + outlier_detection + \
+    normalized_data + fitting_with_control + fixed_R_b + fixed_R_t + outlier_detection + \
     '''\ndate \n''' 
 
 print("Submitting " + qsub_file)

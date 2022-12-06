@@ -13,7 +13,7 @@ def f_curve_vec(x, R_b, R_t, x_50, H):
     Parameters:
     ----------
     x   : array
-          concentration of inhibitor
+          log_10 of concentration of inhibitor
     R_b : float
           bottom response
     R_t : float
@@ -152,16 +152,18 @@ def nls(theta, variances, bounds, data, itnmax=100, tol=1e-4):
         obj1 = R_fun(theta)+N/2*np.log(variances[0])
         itern = itern + 1
 
-    cov_mle = np.linalg.inv(hessian_Q(theta))
+    try: 
+        cov_mle = np.linalg.inv(hessian_Q(theta))
+    except: 
+        print("Singular matrix while extracting cov_mle!")
+        # A = hessian_Q(theta)
+        # U, S, VT = np.linalg.svd(A, full_matrices=False)
+        # threshold = np.finfo(float).eps*max(A.shape)*S[0]
+        # S = S[S > threshold]
+        # VT = VT[:S.size]
+        # cov_mle = np.dot(VT.T / S**2, VT)
+        cov_mle = Moore_Penrose_discard_zero(hessian_Q(theta))
     
-    # A = hessian_Q(theta)
-    # U, S, VT = np.linalg.svd(A, full_matrices=False)
-    # threshold = np.finfo(float).eps*max(A.shape)*S[0]
-    # S = S[S > threshold]
-    # VT = VT[:S.size]
-    # cov_mle = np.dot(VT.T / S**2, VT)
-
-    # cov_mle = Moore_Penrose_discard_zero(hessian_Q(theta))
     ASE = np.sqrt(np.diag(cov_mle))
 
     #return optsol, ASE
@@ -286,8 +288,12 @@ def nls_control(theta, variances, bounds, data, control, itnmax=100, tol=1e-4):
 
         itern = itern + 1
     
-    cov_mle = np.linalg.inv(hessian_R(theta))
-    # cov_mle = Moore_Penrose_discard_zero(hessian_R(theta))
+    try:
+        cov_mle = np.linalg.inv(hessian_R(theta))
+    except:
+        print("Singular matrix while extracting cov_mle!")
+        cov_mle = Moore_Penrose_discard_zero(hessian_R(theta))
+    
     ASE = np.sqrt(np.diag(cov_mle))
 
     #mle = [theta, -(obj1)/(N+L1+L2), itern-1, cov_mle, ASE, variances] #theta, LogL, iterations, col_mle, ASE, variances
@@ -295,7 +301,7 @@ def nls_control(theta, variances, bounds, data, control, itnmax=100, tol=1e-4):
     return mle
 
 
-def parameter_estimation(data, theta=None): 
+def parameter_estimation(data, theta=None, variances=None, itnmax=100, tol=1e-4): 
     """
     Fitting non-linear regression without control
     Parameters:
@@ -313,16 +319,28 @@ def parameter_estimation(data, theta=None):
     max_y = max(data['y'])
     range_y = max_y - min_y
 
-    if theta is not None:
-        theta_0 = theta
-        upper = [max(theta[0]*4, theta[0]/4), max(theta[1]*4, theta[1]/4), max(theta[2]*4, theta[2]/4), max(theta[3]*4, theta[3]/4)]
-        lower = [min(theta[0]*4, theta[0]/4), min(theta[1]*4, theta[1]/4), min(theta[2]*4, theta[2]/4), min(theta[3]*4, theta[3]/4)]
-    else: 
+    if theta is None:
         theta_0 = [min_y, max_y, data['x'][np.argmin(np.square(data['y']-np.mean(data['y'])))], 1.0]
         upper = [min_y + 0.25*range_y, max_y + 0.25*range_y, 0, 50]
         lower = [min_y - 0.25*range_y, max_y - 0.25*range_y, -50, 0]
+    else:
+        theta_0 = theta
+        upper = [theta[0] + 0.25*range_y, theta[1] + 0.25*range_y, 0, 50]
+        lower = [theta[0] - 0.25*range_y, theta[1] - 0.25*range_y, -50, 0]
+        # upper = [max(theta[0]*4, theta[0]/4), max(theta[1]*4, theta[1]/4), max(theta[2]*4, theta[2]/4), max(theta[3]*4, theta[3]/4)]
+        # lower = [min(theta[0]*4, theta[0]/4), min(theta[1]*4, theta[1]/4), min(theta[2]*4, theta[2]/4), min(theta[3]*4, theta[3]/4)]
     
-    # Fit based on curve alone
+    # bounds = [(l,u) for (l,u) in zip(lower, upper)]
+    
+    # # Inital value for variances
+    # if variances is None:
+    #     y_hat = f_curve_vec(data['x'], *theta)
+    #     curve_variance = np.sqrt(np.sum((y_hat - data['y'])**2)/(len(y_hat)-4))
+    #     variances = np.array([curve_variance])
+    
+    # mle = nls(theta=theta, variances=variances, bounds=bounds, data=data, 
+    #           itnmax=100, tol=1e-4)
+
     fit_f, var_matrix = curve_fit(f_curve_vec, xdata=np.array(data['x']), ydata=np.array(data['y']),
                                   absolute_sigma=True, p0=theta_0,
                                   bounds=(lower, upper))
@@ -333,6 +351,7 @@ def parameter_estimation(data, theta=None):
     ASE = np.sqrt(np.diag(var_matrix))*sigma #unscale_SE*sigma
 
     mle = [fit_f, ASE, np.array([sigma**2])]
+
     return mle
 
 
@@ -374,8 +393,11 @@ def parameter_estimation_control(data, theta=None, variances=None, itnmax=100, t
         upper = [min_y + 0.25*range_y, max_y + 0.25*range_y, 0, 50]
         lower = [min_y - 0.25*range_y, max_y - 0.25*range_y, -50, 0]
     else:
-        upper = [max(theta[0]*4, theta[0]/4), max(theta[1]*4, theta[1]/4), max(theta[2]*4, theta[2]/4), max(theta[3]*4, theta[3]/4)]
-        lower = [min(theta[0]*4, theta[0]/4), min(theta[1]*4, theta[1]/4), min(theta[2]*4, theta[2]/4), min(theta[3]*4, theta[3]/4)]
+        upper = [theta[0] + 0.25*range_y, theta[1] + 0.25*range_y, 0, 50]
+        lower = [theta[0] - 0.25*range_y, theta[1] - 0.25*range_y, -50, 0]
+        # upper = [max(theta[0]*4, theta[0]/4), max(theta[1]*4, theta[1]/4), max(theta[2]*4, theta[2]/4), max(theta[3]*4, theta[3]/4)]
+        # lower = [min(theta[0]*4, theta[0]/4), min(theta[1]*4, theta[1]/4), min(theta[2]*4, theta[2]/4), min(theta[3]*4, theta[3]/4)]
+    
     bounds = [(l,u) for (l,u) in zip(lower, upper)]
     
     # Inital value for variances
@@ -396,11 +418,13 @@ def parameter_estimation_control(data, theta=None, variances=None, itnmax=100, t
     try:
         mle = nls_control(theta=theta, variances=variances, bounds=bounds, data=data, 
                           control=control, itnmax=100, tol=1e-4) #theta, ASE, variances
+        fitting_with_control = True
     except np.linalg.LinAlgError:
         print('Singular matrix, performing fit without controls')
         mle = parameter_estimation(data)
+        fitting_with_control = False
 
-    return mle
+    return [*mle, fitting_with_control]
 
 
 def f_curve_vec_fixed_theta1(x, R_t, x_50, H):
@@ -468,14 +492,15 @@ def parameter_estimation_fixed_thetas(data, theta=None, fixed_R_b=False, fixed_R
     max_y = max(data['y'])
     range_y = max_y - min_y
 
-    upper = [min_y + 0.25*range_y, max_y + 0.25*range_y, 0, 50]
-    lower = [min_y - 0.25*range_y, max_y - 0.25*range_y, -50, 0]
-
     if theta is not None:
         theta_0 = theta
+        upper = [theta[0] + 0.25*range_y, theta[1] + 0.25*range_y, 0, 50]
+        lower = [theta[0] - 0.25*range_y, theta[1] - 0.25*range_y, -50, 0]
     else: 
         theta_0 = [min_y, max_y, data['x'][np.argmin(np.square(data['y']-np.mean(data['y'])))], 1.0]
-    
+        upper = [min_y + 0.25*range_y, max_y + 0.25*range_y, 0, 50]
+        lower = [min_y - 0.25*range_y, max_y - 0.25*range_y, -50, 0]
+
     # Fit the curve
     if fixed_R_b and fixed_R_t: #Rbase = 0 and Rmax = 100
         fit_f, var_matrix = curve_fit(f_curve_vec_fixed_thetas, xdata=np.array(data['x']), ydata=np.array(data['y']),

@@ -13,8 +13,8 @@ parser.add_argument( "--out_dir",                    type=str, 		default="")
 
 parser.add_argument( "--nsim",                       type=int, 		default=100)
 parser.add_argument( "--no_replication",             type=int, 		default=4)
-parser.add_argument( "--var_noise",                  type=float, 	default=6)
-parser.add_argument( "--var_control",                type=float, 	default=12)
+parser.add_argument( "--var_noise",                  type=float, 	default=6) #2
+parser.add_argument( "--var_control",                type=float, 	default=12) #4
 parser.add_argument( "--size_of_control",            type=int, 		default=16)
 parser.add_argument( "--seed",                       type=int, 		default=0)
 
@@ -24,6 +24,7 @@ theta_t = np.array([0.227, 54.074, -6.0759, 1.000])
 conc = np.array([5.12e-11, 2.56e-10, 1.28e-09, 6.40e-09, 3.20e-08, 1.60e-07, 8.00e-07, 4.00e-06, 2.00e-05, 1.00e-04])
 logConc = np.log10(conc) 
 
+# pos_incomplete = [0, 1, 2, 3, 4, 5, 6, 7]
 pos_incomplete = [32, 33, 34, 35, 36, 37, 38, 39]
 
 B = args.nsim

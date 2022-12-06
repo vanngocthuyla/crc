@@ -5,8 +5,12 @@ functions to fit the non-linear regression model of dose-response curve with out
 import pandas as pd
 import numpy as np
 import os
+import pickle
+from datetime import datetime
+import logging
+logger=logging.getLogger(__name__)
 
-from _nls_model import f_curve_vec, parameter_estimation, parameter_estimation_control
+from _nls_model import f_curve_vec, parameter_estimation, parameter_estimation_control, parameter_estimation_fixed_thetas
 
 
 def incremental_array(n_obs):
@@ -31,7 +35,7 @@ def check_outlier(data, theta, sigma_c=None, cut_off=2.5):
     Parameters:
     ----------
     data      : list of four element: x, y, c1, c2.
-                x is vector of concentration
+                x is vector of log10 of concentration
                 y is vector of response
                 c1 is control at bottom. c1 can be vector or None or 'None'
                 c2 is control at top. c2 can be vector or None or 'None'
@@ -76,29 +80,50 @@ def check_outlier(data, theta, sigma_c=None, cut_off=2.5):
         return [outlier_position, None, None, None]
 
 
-def one_expt(data, outlier_detection=False, cut_off=2.5):
+def one_expt(data, fitting_with_control=False, outlier_detection=False, 
+             cut_off=2.5, fixed_R_b=False, fixed_R_t=False):
     """
     Estimation of parameters for both control and no control procedures with outlier detection
 
     Parameters:
     ----------
-    data             : list of four element: x, y, c1, c2.
-                      x is vector of concentration
-                      y is vector of response
-                      c1 is control at bottom. c1 can be vector or None or 'None'
-                      c2 is control at top. c2 can be vector or None or 'None'
-                      n_obs is vector of nummber of replication at each concentration
-                      x and y must be same length
-    outlier_detection: bool, optional, fit the model with/without outlier detection
-    cut_off          : float, optional, criteria to remove outlier(s)
+    data                : list of four element: x, y, c1, c2.
+                          x is vector of log10 of concentration
+                          y is vector of response
+                          c1 is control at bottom. c1 can be vector or None or 'None'
+                          c2 is control at top. c2 can be vector or None or 'None'
+                          n_obs is vector of nummber of replication at each concentration
+                          x and y must be same length
+    fitting_with_control: bool, optional, fit with/without the control
+    outlier_detection   : bool, optional, fit the model with/without outlier detection
+    cut_off             : float, criteria to remove outlier(s), default = 2.5
+    fixed_R_b           : bool, optional
+                          True = fixed values of R_b at 0
+    fixed_R_t           : bool, optional
+                          True = fixed values of R_t at 100
     ----------
 
     return [theta, ASE, variance, outlier_position]
     """
-    if (data['c1'] == 'None' and data['c2'] == 'None') or (data['c1'] is None and data['c2'] is None): 
-        [theta, ASE, variances] = parameter_estimation(data)
-    else: 
-        [theta, ASE, variances] = parameter_estimation_control(data)
+    if fitting_with_control: 
+        if (data['c1'] == 'None' and data['c2'] == 'None') or (data['c1'] is None and data['c2'] is None): 
+            [theta, ASE, variances] = parameter_estimation(data)
+            fitting_with_control = False
+            # print("Please provide control information if fitting with control. Try to fit without control!")
+        else:
+            [theta, ASE, variances, fitting_with_control] = parameter_estimation_control(data)
+    else:
+        if fixed_R_b or fixed_R_t: 
+            [theta, ASE, variances] = parameter_estimation_fixed_thetas(data, fixed_R_b=fixed_R_b, fixed_R_t=fixed_R_t)
+            if fixed_R_b and (not fixed_R_t):
+                theta_temp = [0, *theta]
+            elif fixed_R_t and (not fixed_R_b):
+                theta_temp = [theta[0], 100, theta[1], theta[2]]
+            else: 
+                theta_temp = [0, 100, *theta]
+            theta = np.array(theta_temp)
+        else:
+            [theta, ASE, variances] = parameter_estimation(data)
 
     if outlier_detection:
 
@@ -109,22 +134,41 @@ def one_expt(data, outlier_detection=False, cut_off=2.5):
             data['x'] = x_update
             data['n_obs'] = n_obs_update
 
-            if (data['c1'] == 'None' and data['c2'] == 'None') or (data['c1'] is None and data['c2'] is None): 
-                [theta, ASE, variances] = parameter_estimation(data, theta)
-            else: 
-                [theta, ASE, variances] = parameter_estimation_control(data, theta, variances)
+            if fitting_with_control: 
+                [theta, ASE, variances, fitting_with_control] = parameter_estimation_control(data, theta, variances)
+            else:
+                if fixed_R_b or fixed_R_t: 
+                    [theta, ASE, variances] = parameter_estimation_fixed_thetas(data, theta=theta, fixed_R_b=fixed_R_b, fixed_R_t=fixed_R_t)
+                    if fixed_R_b and (not fixed_R_t):
+                        theta_temp = [0, *theta]
+                    elif fixed_R_t and (not fixed_R_b):
+                        theta_temp = [theta[0], 100, theta[1], theta[2]]
+                    else: 
+                        theta_temp = [0, 100, *theta]
+                    theta = np.array(theta_temp)
+                else:
+                    [theta, ASE, variances] = parameter_estimation(data, theta, variances)
         
-        if data['c1']=="None" and data['c1'] is not None and len(variances)>1:
+        if (data['c1']=="None" or data['c1'] is None) and len(variances)>1:
             variances = np.delete(variances, 1)
-        if data['c2']=="None" and data['c2'] is not None and len(variances)>1:
+        if (data['c2']=="None" or data['c2'] is None) and len(variances)>1:
             variances = np.delete(variances, 2)
     else: 
         outlier_position = 'None'
 
+    if fixed_R_b or fixed_R_t: 
+        if fixed_R_b and (not fixed_R_t):
+            ASE_temp = [0, *ASE]
+        elif fixed_R_t and (not fixed_R_b):
+            ASE_temp = [ASE[0], 0, ASE[1], ASE[2]]
+        else:
+            ASE_temp = [0, 0, *ASE]
+        ASE = np.array(ASE_temp)
+
     return [theta, ASE, variances, outlier_position]
 
 
-def multi_expt(experiments, outlier_detection=False, cut_off=2.5,  
+def multi_expt(experiments, fitting_with_control=False, outlier_detection=False, cut_off=2.5, fixed_R_b=False, fixed_R_t=False,
                OUT_DIR=None, file_name_to_save=None):
     """
     This functions fits non-linear regression model based on available information of the experiment. 
@@ -132,18 +176,24 @@ def multi_expt(experiments, outlier_detection=False, cut_off=2.5,
     
     Parameters:
     ----------
-    experiments       : list of experiments that were need to be fit
-                        ID            : string, identify name of experiment
-                        Molecular_Name: string, name of molecule
-                        logLtot       : vector, series of log of concentration of compound
-                        n_obs         : vector, nummber of replication at each concentration
-                        raw_R         : vector, response
-                        Negative Control : vector, control of the top
-                        Positive Control : vector, control of the bottom
-                        Covalent Warhead : bool
-    outlier_detection : bool, optional, fit the model with/without outlier detection
-    OUT_DIR           : directory for output
-    file_name_to_save : name of final result file
+    experiments         : list of experiments that were need to be fit
+                          ID            : string, identify name of experiment
+                          Molecular_Name: string, name of molecule
+                          logLtot       : vector, series of log of concentration of compound
+                          n_obs         : vector, nummber of replication at each concentration
+                          raw_R         : vector, response
+                          Negative Control : vector, control of the top
+                          Positive Control : vector, control of the bottom
+                          Covalent Warhead : bool
+    fitting_with_control: bool, optional, fit with/without the control
+    outlier_detection   : bool, optional, fit the model with/without outlier detection
+    cut_off             : float, criteria to remove outlier(s), default = 2.5
+    fixed_R_b           : bool, optional
+                          True = fixed values of R_b at 0
+    fixed_R_t           : bool, optional
+                          True = fixed values of R_t at 100
+    OUT_DIR             : directory for output
+    file_name_to_save   : name of final result file
     ----------
     
     return dataframe of multiple fitting and vector of IDs of curves that cannot be fit
@@ -184,6 +234,7 @@ def multi_expt(experiments, outlier_detection=False, cut_off=2.5,
     unique_conc = []
     exper_names = list(CVD_init.ID)
 
+    start = datetime.now()
     for i in range(M): 
         name = exper_names[i]
         dat = CVD_init.iloc[i]
@@ -192,21 +243,23 @@ def multi_expt(experiments, outlier_detection=False, cut_off=2.5,
         if len(np.unique(dat['x']))==1:
             unique_conc.append(i)
         else:
-            # try: 
-            [theta, ASE, variances, outlier_position] = one_expt(dat, outlier_detection)
-            CVD['theta'][i] = theta
-            CVD['ASE'][i] = ASE
-            CVD['Variances'][i] = np.array(variances)
-            CVD['Outlier_Pos'][i] = outlier_position
-            # except:
-                # print(f'Problem with {i}')
-                # problem_set.append(i)
+            try: 
+                [theta, ASE, variances, outlier_position] = one_expt(dat, fitting_with_control=fitting_with_control, outlier_detection=outlier_detection, fixed_R_b=fixed_R_b, fixed_R_t=fixed_R_t)
+                CVD['theta'][i] = theta
+                CVD['ASE'][i] = ASE
+                CVD['Variances'][i] = np.array(variances)
+                CVD['Outlier_Pos'][i] = outlier_position
+            except Exception as e:
+                print(f'Problem with {i}', ". Error message: ", e)
+                problem_set.append(i)
+    end = datetime.now()
             
     if len(unique_conc)>0:
         print("There are", len(unique_conc), "experiment with only 1 inhibitor concentration.")
     
     CVD.to_csv(os.path.join(OUT_DIR, file_name_to_save+'.csv'))
     pickle.dump(CVD.to_dict(), open(os.path.join(OUT_DIR, file_name_to_save+'.pickle'), "wb"))
+    print("Total time to run:", end-start)
 
     return CVD, problem_set
 

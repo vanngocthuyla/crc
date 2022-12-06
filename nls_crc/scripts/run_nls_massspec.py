@@ -21,6 +21,8 @@ parser.add_argument( "--out_dir",               type=str,               default=
 
 parser.add_argument( "--normalized_data",       action="store_true",    default=False)
 parser.add_argument( "--fitting_with_control",  action="store_true",    default=False)
+parser.add_argument( "--fixed_R_b",             action="store_true",    default=False)
+parser.add_argument( "--fixed_R_t",             action="store_true",    default=False)
 parser.add_argument( "--outlier_detection",     action="store_true",    default=False)
 
 args = parser.parse_args()
@@ -553,12 +555,21 @@ else:
         data_to_fit = experiments_norm_None
         file_name = file_name + '_no_ctrl'
 
+if args.fixed_R_b: 
+    print("Fixing R_b = 0.")
+    file_name = file_name + '_Rb'
+
+if args.fixed_R_t: 
+    print("Fixing R_t = 100.")
+    file_name = file_name + '_Rt'
+
 if args.outlier_detection: 
     print("Fitting with outlier detection.")
     file_name = file_name + '_outlier'
 else: 
     print("Fitting without outlier detection.")
 
-CVD, problem_set = multi_expt(experiments=data_to_fit, outlier_detection=args.outlier_detection, 
+CVD, problem_set = multi_expt(experiments=data_to_fit, fitting_with_control=args.fitting_with_control, 
+                              outlier_detection=args.outlier_detection, fixed_R_b=args.fixed_R_b, fixed_R_t=args.fixed_R_t,
                               OUT_DIR=args.out_dir, file_name_to_save=file_name)
 print("DONE")

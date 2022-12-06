@@ -53,28 +53,42 @@ def plot_MSE(theta_t, input_file, control_file=None, normalized_data=False,
         Theta_matrix = Theta_matrix_init
 
     
-    xlabel = {'theta1':'${\Theta}_1$', 'theta2':'${\Theta}_2$', 
-              'theta3':'${\Theta}_3$', 'theta4':'${\Theta}_4$'}
-    fig, axes = plt.subplots(2, 2, figsize=(9, 7), sharex=False, sharey=False)
+    xlabel = {'theta1':'$R_b$', 'theta2':'$R_t$', 
+              'theta3':'$x_{50}$', 'theta4':'$H$'}
+    if len(Theta_matrix.columns) > 2: 
+        fig, axes = plt.subplots(2, 2, figsize=(9, 7), sharex=False, sharey=False)
+    else:
+        fig, axes = plt.subplots(1, 2, figsize=(9, 3.5), sharex=False, sharey=False)
     axes = axes.flatten()
 
-    for i, theta in enumerate(['theta1', 'theta2', 'theta3', 'theta4']):
-        if theta in Theta_matrix.columns: 
-            axes[i].hist(Theta_matrix[theta])
-            axes[i].set_xlabel(xlabel[theta])
-            axes[i].axvline(theta_t[i], color='r', label='True ${\Theta}$')
-            axes[i].axvline(np.mean(Theta_matrix[theta]),color="green", label='Simulated ${\Theta}$')
-            handles, labels = axes[i].get_legend_handles_labels()
-            axes[i].grid(True)
-        else:
-            axes[i].set_visible(False)
+    # for i, theta in enumerate(['theta1', 'theta2', 'theta3', 'theta4']):
+    #     if theta in Theta_matrix.columns: 
+    #         axes[i].hist(Theta_matrix[theta])
+    #         axes[i].set_xlabel(xlabel[theta])
+    #         axes[i].axvline(theta_t[i], color='r', label='True ${\Theta}$')
+    #         axes[i].axvline(np.mean(Theta_matrix[theta]),color="green", label='Simulated ${\Theta}$')
+    #         handles, labels = axes[i].get_legend_handles_labels()
+    #         axes[i].grid(True)
+    #     else:
+    #         axes[i].set_visible(False)
+
+    for i, theta in enumerate(Theta_matrix.columns):
+        axes[i].hist(Theta_matrix[theta])
+        axes[i].set_xlabel(xlabel[theta])
+        axes[i].axvline(theta_t[np.where(np.array(['theta1', 'theta2', 'theta3', 'theta4'])==theta)], color='r', label='True ${\Theta}$')
+        axes[i].axvline(np.mean(Theta_matrix[theta]),color="green", label='Simulated ${\Theta}$')
+        handles, labels = axes[i].get_legend_handles_labels()
+        axes[i].grid(True)
+    if len(axes) > (i+1):
+        axes[int(i+1)].set_visible(False)
+
     by_label = dict(zip(labels, handles))
-    fig.legend(by_label.values(), by_label.keys(), loc='center right', bbox_to_anchor=(1.17, 0.8))
-    plt.suptitle(plot_name, x=0.5, y=1.02, fontsize='x-large')
+    #fig.legend(by_label.values(), by_label.keys(), loc='center right', bbox_to_anchor=(1.17, 0.8))
+    #plt.suptitle(plot_name, x=0.5, y=1.02, fontsize='x-large')
     fig.tight_layout();
 
     if OUT_DIR is not None:
-        plt.savefig(os.path.join(OUT_DIR, plot_name), bbox_inches='tight')
+        plt.savefig(os.path.join(OUT_DIR, plot_name))#, bbox_inches='tight')
     plt.ioff()
     # plt.show();
 
@@ -88,6 +102,8 @@ def calculating_MSE(theta_t, input_file, control_file=None, normalized_data=True
     ----------
     theta_t          : vector, true values of 4 parameters
     input_file       : string, directory of .csv file from the fitting results 
+    control_file     : string, file contains the information of fitting curves, including both controls
+    normalized_data  : bool  , theta was normalized (True) or unnormalized (False)
     drop_first_column: bool  , keep or drop first column in .csv file
     n_batch          : integer, number of batches to calculate mean and std of MSE
     output_file      : string, name of the output file

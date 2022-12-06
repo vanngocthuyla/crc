@@ -11,7 +11,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter("ignore", UserWarning)
 warnings.simplefilter("ignore", RuntimeWarning)
 
-from _nls_model import parameter_estimation_fixed_thetas, parameter_estimation_control
+from _nls_model import parameter_estimation, parameter_estimation_control, parameter_estimation_fixed_thetas
 
 parser = argparse.ArgumentParser()
 
