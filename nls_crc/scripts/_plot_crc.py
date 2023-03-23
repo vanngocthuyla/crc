@@ -308,7 +308,7 @@ def plot_crc_params(data, theta=None, positive=None, negative=None, outlier_pos=
             r'$R_b$: '+ str('%3.2f' %theta[0]) + ' $\pm$ ' + str('%3.2f' %ASE[0])
             + '\n$R_t$: '+ str('%3.2f' %theta[1]) + ' $\pm$ ' + str('%3.2f' %ASE[1]) 
             + '\n$x_{50}$: '+ str('%3.2f' %theta[2]) + ' $\pm$ ' + str('%3.2f' %ASE[2])
-            + '\n$H$: ' + str('%5.3f' %theta[3]) + ' $\pm$ ' + str('%3.2f' %ASE[3]), 
+            + '\n$H$: ' + str('%3.2f' %theta[3]) + ' $\pm$ ' + str('%3.2f' %ASE[3]), 
         fontsize=11, transform=ax.transAxes, color='k')
 
 
