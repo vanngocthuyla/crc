@@ -73,10 +73,12 @@ def plot_MSE(theta_t, input_file, control_file=None, normalized_data=False,
     #         axes[i].set_visible(False)
 
     for i, theta in enumerate(Theta_matrix.columns):
-        axes[i].hist(Theta_matrix[theta])
+        axes[i].hist(Theta_matrix[theta], color="lightblue")
         axes[i].set_xlabel(xlabel[theta])
-        axes[i].axvline(theta_t[np.where(np.array(['theta1', 'theta2', 'theta3', 'theta4'])==theta)], color='r', label='True ${\Theta}$')
-        axes[i].axvline(np.mean(Theta_matrix[theta]),color="green", label='Simulated ${\Theta}$')
+        axes[i].axvline(theta_t[np.where(np.array(['theta1', 'theta2', 'theta3', 'theta4'])==theta)], 
+                        color='r', label='True ${\Theta}$', linewidth=3, linestyle='-')
+        axes[i].axvline(np.mean(Theta_matrix[theta]), color="green", 
+                        label='Simulated ${\Theta}$', linewidth=3, linestyle='--')
         handles, labels = axes[i].get_legend_handles_labels()
         axes[i].grid(True)
     if len(axes) > (i+1):
